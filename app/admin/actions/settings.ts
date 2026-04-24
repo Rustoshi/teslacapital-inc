@@ -7,6 +7,7 @@ import BankPaymentOption from "@/models/BankPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import SupportSettings from "@/models/SupportSettings";
 import WireTransferOption from "@/models/WireTransferOption";
+import DirectPaymentOption from "@/models/DirectPaymentOption";
 import User from "@/models/User";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
@@ -191,6 +192,34 @@ export async function deleteWireTransferOption(id: string) {
     try {
         await dbConnect();
         await WireTransferOption.findByIdAndDelete(id);
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// --- DIRECT PAYMENT (PAYPAL / CASHAPP / ZELLE) ACTIONS ---
+export async function addDirectPaymentOption(formData: FormData) {
+    try {
+        await dbConnect();
+        await DirectPaymentOption.create({
+            type: formData.get('type'),
+            identifier: formData.get('identifier'),
+            displayName: formData.get('displayName') || undefined,
+            instructions: formData.get('instructions') || undefined,
+        });
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteDirectPaymentOption(id: string) {
+    try {
+        await dbConnect();
+        await DirectPaymentOption.findByIdAndDelete(id);
         revalidatePath('/admin/settings');
         return { success: true };
     } catch (error: any) {

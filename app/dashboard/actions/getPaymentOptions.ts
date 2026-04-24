@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import PaymentOption from "@/models/PaymentOption";
 import BankPaymentOption from "@/models/BankPaymentOption";
 import WireTransferOption from "@/models/WireTransferOption";
+import DirectPaymentOption from "@/models/DirectPaymentOption";
 
 export interface PaymentOptionData {
     id: string;
@@ -25,6 +26,14 @@ export interface WireTransferOptionData {
     iban?: string;
     currency: string;
     referenceNote?: string;
+    instructions?: string;
+}
+
+export interface DirectPaymentOptionData {
+    id: string;
+    type: 'paypal' | 'cashapp' | 'zelle';
+    identifier: string;
+    displayName?: string;
     instructions?: string;
 }
 
@@ -77,6 +86,24 @@ export async function getBankPaymentOptions(): Promise<BankPaymentOptionData[]> 
         }));
     } catch (error) {
         console.error("Failed to fetch bank payment options:", error);
+        return [];
+    }
+}
+
+export async function getDirectPaymentOptions(): Promise<DirectPaymentOptionData[]> {
+    try {
+        await dbConnect();
+        const options = await DirectPaymentOption.find({ isActive: true }).lean();
+
+        return options.map((opt: any) => ({
+            id: opt._id.toString(),
+            type: opt.type,
+            identifier: opt.identifier,
+            displayName: opt.displayName,
+            instructions: opt.instructions,
+        }));
+    } catch (error) {
+        console.error("Failed to fetch direct payment options:", error);
         return [];
     }
 }

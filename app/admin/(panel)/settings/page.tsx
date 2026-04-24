@@ -7,6 +7,7 @@ import BankPaymentOption from "@/models/BankPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import SupportSettings from "@/models/SupportSettings";
 import WireTransferOption from "@/models/WireTransferOption";
+import DirectPaymentOption from "@/models/DirectPaymentOption";
 import SettingsTabs from "@/components/admin/SettingsTabs";
 
 export default async function AdminSettingsPage() {
@@ -41,6 +42,15 @@ export default async function AdminSettingsPage() {
     // Fetch Wire Transfer Options
     const rawWireOptions = await WireTransferOption.find().sort({ createdAt: -1 }).lean();
     const wireTransferOptions = rawWireOptions.map((p: any) => ({
+        ...p,
+        _id: p._id?.toString(),
+        createdAt: p.createdAt?.toISOString(),
+        updatedAt: p.updatedAt?.toISOString()
+    }));
+
+    // Fetch Direct Payment Options (PayPal, CashApp, Zelle)
+    const rawDirectOptions = await DirectPaymentOption.find().sort({ createdAt: -1 }).lean();
+    const directPaymentOptions = rawDirectOptions.map((p: any) => ({
         ...p,
         _id: p._id?.toString(),
         createdAt: p.createdAt?.toISOString(),
@@ -89,6 +99,7 @@ export default async function AdminSettingsPage() {
                 paymentOptions={paymentOptions}
                 bankPaymentOptions={bankPaymentOptions}
                 wireTransferOptions={wireTransferOptions}
+                directPaymentOptions={directPaymentOptions}
                 investmentPlans={investmentPlans}
                 supportSettings={supportSettings}
             />

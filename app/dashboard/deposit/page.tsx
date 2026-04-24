@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import QRCode from "react-qr-code";
 import { submitDeposit } from "@/app/dashboard/actions/deposit";
-import { getPaymentOptions, getBankPaymentOptions, getWireTransferOptions, type PaymentOptionData, type BankPaymentOptionData, type WireTransferOptionData } from "@/app/dashboard/actions/getPaymentOptions";
+import { getPaymentOptions, getBankPaymentOptions, getWireTransferOptions, getDirectPaymentOptions, type PaymentOptionData, type BankPaymentOptionData, type WireTransferOptionData, type DirectPaymentOptionData } from "@/app/dashboard/actions/getPaymentOptions";
 import { Loader2, Landmark, Copy, Check } from "lucide-react";
 
 type SelectedMethod =
     | { type: "crypto"; data: PaymentOptionData }
     | { type: "bank"; data: BankPaymentOptionData }
-    | { type: "wire"; data: WireTransferOptionData };
+    | { type: "wire"; data: WireTransferOptionData }
+    | { type: "direct"; data: DirectPaymentOptionData };
 
 function getTickerStyle(ticker: string): { color: string; bg: string } {
     const t = ticker.toUpperCase();
@@ -70,6 +71,7 @@ export default function DepositPage() {
     const [cryptoOptions, setCryptoOptions] = useState<PaymentOptionData[]>([]);
     const [bankOptions, setBankOptions] = useState<BankPaymentOptionData[]>([]);
     const [wireOptions, setWireOptions] = useState<WireTransferOptionData[]>([]);
+    const [directOptions, setDirectOptions] = useState<DirectPaymentOptionData[]>([]);
     const [optionsLoading, setOptionsLoading] = useState(true);
 
     // For QR copy (crypto only)
@@ -80,10 +82,11 @@ export default function DepositPage() {
     useEffect(() => {
         async function fetchOptions() {
             try {
-                const [crypto, bank, wire] = await Promise.all([getPaymentOptions(), getBankPaymentOptions(), getWireTransferOptions()]);
+                const [crypto, bank, wire, direct] = await Promise.all([getPaymentOptions(), getBankPaymentOptions(), getWireTransferOptions(), getDirectPaymentOptions()]);
                 setCryptoOptions(crypto);
                 setBankOptions(bank);
                 setWireOptions(wire);
+                setDirectOptions(direct);
             } catch (err) {
                 console.error("Failed to load payment options:", err);
             } finally {
@@ -147,6 +150,8 @@ export default function DepositPage() {
                     ? selectedMethod.data.network
                     : selectedMethod.type === 'wire'
                     ? `Wire Transfer — ${selectedMethod.data.bankName}`
+                    : selectedMethod.type === 'direct'
+                    ? `${selectedMethod.data.type === 'cashapp' ? 'CashApp' : selectedMethod.data.type === 'paypal' ? 'PayPal' : 'Zelle'} — ${selectedMethod.data.identifier}`
                     : `Bank Transfer — ${selectedMethod.data.bankName}`
             );
             submitData.append('proofUrl', secureUrl);
@@ -171,11 +176,13 @@ export default function DepositPage() {
             ? selectedMethod.data.network
             : selectedMethod?.type === 'wire'
             ? `${selectedMethod.data.bankName} (Wire Transfer)`
+            : selectedMethod?.type === 'direct'
+            ? `${selectedMethod.data.type === 'cashapp' ? 'CashApp' : selectedMethod.data.type === 'paypal' ? 'PayPal' : 'Zelle'}`
             : selectedMethod?.type === 'bank'
             ? `${selectedMethod.data.bankName} (Bank Transfer)`
             : '';
 
-    const hasAnyOptions = cryptoOptions.length > 0 || bankOptions.length > 0 || wireOptions.length > 0;
+    const hasAnyOptions = cryptoOptions.length > 0 || bankOptions.length > 0 || wireOptions.length > 0 || directOptions.length > 0;
 
     return (
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-32">
@@ -333,6 +340,43 @@ export default function DepositPage() {
                                         </div>
                                     )}
 
+                                    {/* Direct Payment Options (PayPal / CashApp / Zelle) */}
+                                    {directOptions.length > 0 && (
+                                        <div className="mb-8">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-4">PayPal / CashApp / Zelle</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                                {directOptions.map((dp) => {
+                                                    const isSelected = selectedMethod?.type === 'direct' && selectedMethod.data.id === dp.id;
+                                                    const typeColors: Record<string, { color: string; bg: string }> = {
+                                                        paypal: { color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                                                        cashapp: { color: 'text-green-400', bg: 'bg-green-500/10' },
+                                                        zelle: { color: 'text-purple-400', bg: 'bg-purple-500/10' },
+                                                    };
+                                                    const colors = typeColors[dp.type] || typeColors.paypal;
+                                                    const label = dp.type === 'cashapp' ? 'CashApp' : dp.type === 'paypal' ? 'PayPal' : 'Zelle';
+                                                    return (
+                                                        <button
+                                                            key={dp.id}
+                                                            onClick={() => setSelectedMethod({ type: 'direct', data: dp })}
+                                                            className={`flex flex-col items-center justify-center p-4 rounded-xl border overflow-hidden transition-all duration-300 ${isSelected
+                                                                ? "border-red-500 bg-red-500/10"
+                                                                : "border-white/[0.05] bg-black/40 hover:bg-white/[0.05] hover:border-white/20"
+                                                            }`}
+                                                        >
+                                                            <div className={`w-12 h-12 rounded-full ${colors.bg} ${colors.color} flex items-center justify-center mb-3`}>
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                                </svg>
+                                                            </div>
+                                                            <div className="text-xs font-bold text-white tracking-widest uppercase text-center w-full truncate">{label}</div>
+                                                            {dp.displayName && <div className="text-[10px] text-white/40 tracking-wider mt-0.5 truncate w-full text-center">{dp.displayName}</div>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Wire Transfer Options */}
                                     {wireOptions.length > 0 && (
                                         <div className="mb-8">
@@ -453,6 +497,46 @@ export default function DepositPage() {
                                             )}
 
                                             <p className="text-[10px] text-blue-400/80 mt-4 uppercase tracking-widest font-bold text-center">After transferring, upload your payment receipt on the next step.</p>
+                                        </motion.div>
+                                    )}
+
+                                    {selectedMethod?.type === 'direct' && (
+                                        <motion.div
+                                            key="direct-details"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            className={`border rounded-xl p-6 mb-8 ${selectedMethod.data.type === 'paypal' ? 'bg-black/60 border-blue-500/30' : selectedMethod.data.type === 'cashapp' ? 'bg-black/60 border-green-500/30' : 'bg-black/60 border-purple-500/30'}`}
+                                        >
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedMethod.data.type === 'paypal' ? 'bg-blue-500/10' : selectedMethod.data.type === 'cashapp' ? 'bg-green-500/10' : 'bg-purple-500/10'}`}>
+                                                    <svg className={`w-5 h-5 ${selectedMethod.data.type === 'paypal' ? 'text-blue-400' : selectedMethod.data.type === 'cashapp' ? 'text-green-400' : 'text-purple-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-white uppercase tracking-widest">{selectedMethod.data.type === 'cashapp' ? 'CashApp' : selectedMethod.data.type === 'paypal' ? 'PayPal' : 'Zelle'}</p>
+                                                    <p className="text-[10px] text-white/40 tracking-widest uppercase">Send exactly <strong className="text-white">${amount}</strong> to this account</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <CopyField label="Send To" value={selectedMethod.data.identifier} />
+                                                {selectedMethod.data.displayName && (
+                                                    <div>
+                                                        <div className="text-[10px] tracking-widest uppercase text-white/40 mb-1">Account Name</div>
+                                                        <div className="text-sm font-mono text-white/70 px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg">{selectedMethod.data.displayName}</div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {selectedMethod.data.instructions && (
+                                                <div className="mt-4 p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/80 mb-1">Instructions</p>
+                                                    <p className="text-xs text-white/60 leading-relaxed">{selectedMethod.data.instructions}</p>
+                                                </div>
+                                            )}
+
+                                            <p className={`text-[10px] mt-4 uppercase tracking-widest font-bold text-center ${selectedMethod.data.type === 'paypal' ? 'text-blue-400/80' : selectedMethod.data.type === 'cashapp' ? 'text-green-400/80' : 'text-purple-400/80'}`}>After sending, upload your payment receipt on the next step.</p>
                                         </motion.div>
                                     )}
 
